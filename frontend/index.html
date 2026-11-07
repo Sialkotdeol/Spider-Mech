@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12151a">
+<title>Spider Mech</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <h1>SPIDER MECH</h1>
+    <span class="chip chip-sim" id="sim-badge" hidden>SIMULATED</span>
+  </div>
+
+  <div class="telemetry" id="telemetry-strip">
+    <span class="stat" id="stat-link"><i class="dot"></i><span>offline</span></span>
+    <span class="stat" id="stat-volts">--<em>V</em></span>
+    <span class="stat" id="stat-amps">--<em>A</em></span>
+    <span class="stat" id="stat-hz">--<em>Hz</em></span>
+    <span class="stat" id="stat-gait">--</span>
+  </div>
+
+  <button class="estop" id="estop">STOP</button>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<div class="workspace">
+
+  <!-- ============================ 3D VIEWPORT ============================ -->
+  <section class="viewport">
+    <canvas id="scene"></canvas>
+
+    <div class="overlay overlay-tl">
+      <div class="seg" id="view-presets">
+        <button data-view="iso" class="on">ISO</button>
+        <button data-view="front">FRONT</button>
+        <button data-view="side">SIDE</button>
+        <button data-view="top">TOP</button>
+      </div>
+      <div class="seg seg-quiet" id="view-toggles">
+        <button data-toggle="grid" class="on">GRID</button>
+        <button data-toggle="labels" class="on">IDS</button>
+        <button data-toggle="tripods">TRIPODS</button>
+      </div>
+    </div>
+
+    <div class="overlay overlay-tr">
+      <div class="seg seg-mode" id="interact-mode">
+        <button data-mode="view" class="on">VIEW</button>
+        <button data-mode="servo">SERVO</button>
+        <button data-mode="foot">FOOT</button>
+      </div>
+      <p class="overlay-hint" id="mode-hint">Drag to orbit &middot; pinch or scroll to zoom</p>
+    </div>
+
+    <!-- Joint inspector: appears when a servo is selected in the 3D view -->
+    <div class="inspector" id="inspector" hidden>
+      <div class="inspector-head">
+        <strong id="inspector-title">L1 &middot; coxa</strong>
+        <button class="link-btn" id="inspector-release">release leg</button>
+      </div>
+      <div class="joint-rows" id="joint-rows"></div>
+      <div class="inspector-foot">
+        <span id="inspector-foot-pos">foot &mdash;</span>
+        <span id="inspector-channel">ch &mdash;</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== CONTROLS ============================= -->
+  <aside class="panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="drive" class="on">Drive</button>
+      <button data-tab="pose">Pose</button>
+      <button data-tab="legs">Legs</button>
+      <button data-tab="setup">Setup</button>
+    </nav>
+
+    <div class="tab-body">
+
+      <!-- ------------------------------ DRIVE ------------------------------ -->
+      <section class="tab" data-tab="drive">
+        <div class="card">
+          <h2>Gait</h2>
+          <div class="chips" id="gait-chips"></div>
+          <p class="note" id="gait-note"></p>
+        </div>
+
+        <div class="card">
+          <h2>Direction</h2>
+          <div class="pad-wrap">
+            <div class="pad" id="drive-pad" data-label-up="FWD" data-label-down="BACK">
+              <span class="pad-cross"></span>
+              <span class="pad-knob"></span>
+            </div>
+          </div>
+          <div class="slider">
+            <label>Turn <output id="out-turn">0</output></label>
+            <input type="range" id="in-turn" min="-100" max="100" value="0" step="1">
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Motion</h2>
+          <div class="slider">
+            <label>Speed <output id="out-speed">50%</output></label>
+            <input type="range" id="in-speed" min="5" max="100" value="50">
+          </div>
+          <div class="slider">
+            <label>Step height <output id="out-height">40 mm</output></label>
+            <input type="range" id="in-height" min="0" max="90" value="40">
+          </div>
+          <div class="slider">
+            <label>Stride <output id="out-stride">100%</output></label>
+            <input type="range" id="in-stride" min="0" max="150" value="100">
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Moves</h2>
+          <div class="chips" id="move-chips"></div>
+          <p class="note" id="move-note"></p>
+        </div>
+      </section>
+
+      <!-- ------------------------------- POSE ------------------------------ -->
+      <section class="tab" data-tab="pose" hidden>
+        <div class="card">
+          <h2>Stance</h2>
+          <div class="chips" id="stance-chips"></div>
+        </div>
+
+        <div class="card">
+          <h2>Axis mode</h2>
+          <div class="chips" id="axis-chips"></div>
+          <p class="note" id="axis-note"></p>
+          <div class="pad-wrap">
+            <div class="pad pad-axis" id="axis-pad">
+              <span class="pad-cross"></span>
+              <span class="pad-knob"></span>
+            </div>
+          </div>
+          <div class="axis-readout" id="axis-readout"></div>
+          <button class="btn wide" id="btn-center">Centre body</button>
+        </div>
+
+        <div class="card">
+          <h2>Body pose</h2>
+          <div id="body-sliders"></div>
+        </div>
+      </section>
+
+      <!-- ------------------------------- LEGS ------------------------------ -->
+      <section class="tab" data-tab="legs" hidden>
+        <div class="card">
+          <h2>Leg</h2>
+          <div class="leg-grid" id="leg-grid"></div>
+          <div class="row">
+            <button class="btn" id="btn-release-leg">Release leg</button>
+            <button class="btn" id="btn-release-all">Release all</button>
+          </div>
+          <p class="note">Releasing hands the leg back to the stance and gait engine.</p>
+        </div>
+
+        <div class="card">
+          <h2>Joint angles <span class="sub">kinematic &deg;</span></h2>
+          <div id="leg-joint-sliders"></div>
+          <div class="row">
+            <button class="btn" id="btn-leg-zero">This leg &rarr; neutral</button>
+            <button class="btn" id="btn-femurs-zero">All femurs &rarr; 90&deg; (horizontal)</button>
+          </div>
+          <p class="note">Type an angle in a box and press Enter, or drag. The femur is in servo degrees, 0&ndash;180: 90 is the thigh horizontal, and the full 0&ndash;180 is the femur&rsquo;s whole sweep.</p>
+        </div>
+
+        <div class="card">
+          <h2>Foot target <span class="sub">leg-local mm</span></h2>
+          <div id="leg-foot-sliders"></div>
+          <p class="note" id="foot-status"></p>
+        </div>
+
+        <div class="card">
+          <h2>Saved poses</h2>
+          <div class="row">
+            <input type="text" id="pose-name" placeholder="Pose name" maxlength="40">
+            <button class="btn primary" id="btn-save-pose">Save</button>
+          </div>
+          <div class="chips" id="pose-chips"></div>
+        </div>
+      </section>
+
+      <!-- ------------------------------- SETUP ----------------------------- -->
+      <section class="tab" data-tab="setup" hidden>
+        <div class="card">
+          <h2>Behaviour</h2>
+          <div class="toggles" id="behaviour-toggles">
+            <button data-flag="torque" class="toggle on">Torque</button>
+            <button data-flag="hold_pos" class="toggle">Hold pos</button>
+            <button data-flag="auto_level" class="toggle">Auto level</button>
+            <button data-flag="auto_sit" class="toggle">Auto sit</button>
+            <button id="btn-beep" class="toggle">Beep</button>
+          </div>
+          <p class="note" id="behaviour-note"></p>
+        </div>
+
+        <div class="card">
+          <h2>Levelling</h2>
+          <div class="row">
+            <button class="btn" id="btn-level-now">Zero IMU here</button>
+          </div>
+          <div class="readout" id="imu-readout"></div>
+          <div id="sim-tilt" hidden>
+            <p class="note">Simulated IMU &mdash; tilt the virtual ground to test auto&#8209;level.</p>
+            <div class="slider">
+              <label>Ground roll <output id="out-tilt-roll">0&deg;</output></label>
+              <input type="range" id="in-tilt-roll" min="-25" max="25" value="0">
+            </div>
+            <div class="slider">
+              <label>Ground pitch <output id="out-tilt-pitch">0&deg;</output></label>
+              <input type="range" id="in-tilt-pitch" min="-25" max="25" value="0">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Calibration</h2>
+          <p class="note">Trim each servo so the 3D model matches the real robot:
+             <code>servo = direction &times; angle + offset</code>.</p>
+          <div class="row">
+            <select id="cal-leg"></select>
+            <select id="cal-joint"></select>
+          </div>
+          <p class="note">While Setup is open, the selected leg is held with every joint at its neutral angle, so the servo sits exactly at the Offset. Drag Offset across the full 0&ndash;180&deg; to sweep the servo and stop where the limb is neutral (femur: thigh horizontal).</p>
+          <div class="slider">
+            <label>Offset <output id="out-cal-offset">90&deg;</output></label>
+            <input type="range" id="in-cal-offset" min="0" max="180" value="90" step="0.5">
+          </div>
+          <div class="slider">
+            <label>Servo min <output id="out-cal-min">0&deg;</output></label>
+            <input type="range" id="in-cal-min" min="0" max="180" value="0" step="0.5">
+          </div>
+          <div class="slider">
+            <label>Servo max <output id="out-cal-max">180&deg;</output></label>
+            <input type="range" id="in-cal-max" min="0" max="180" value="180" step="0.5">
+          </div>
+          <p class="note"><b>Test direction</b> moves the selected joint 30&deg; and back. The real joint must move the same way as the 3D model; if it moves the opposite way, click <b>Flip direction</b> (the offset re-centres so the joint keeps its full range) and test again.</p>
+          <p class="note">Servo min and max decide each motor&rsquo;s range: changing either one re-centres the offset so the joint&rsquo;s whole movement fits between them. Narrow them if a limb hits a mechanical stop. Offset is only a fine trim afterwards.</p>
+          <div class="row">
+            <button class="btn wide" id="btn-cal-fit-all">Fit all 18 motors to their min&ndash;max</button>
+          </div>
+          <div class="row">
+            <button class="btn" id="btn-cal-test">Test direction</button>
+            <button class="btn" id="btn-cal-flip">Flip direction</button>
+            <button class="btn" id="btn-cal-widen">Widen to 0&ndash;180</button>
+            <button class="btn" id="btn-cal-femurs-zero">All femurs &rarr; horizontal</button>
+            <button class="btn" id="btn-cal-reset">Reset all</button>
+            <button class="btn primary" id="btn-cal-save">Save</button>
+          </div>
+          <div class="readout" id="cal-readout"></div>
+        </div>
+
+        <div class="card">
+          <h2>Hardware</h2>
+          <div class="readout" id="hardware-readout"></div>
+        </div>
+
+        <div class="card">
+          <h2>Keyboard</h2>
+          <div class="readout keys">
+            <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</div>
+            <div><kbd>Q</kbd><kbd>E</kbd> turn</div>
+            <div><kbd>1</kbd>&hellip;<kbd>7</kbd> gait</div>
+            <div><kbd>Space</kbd> stop</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

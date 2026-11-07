@@ -1,0 +1,30 @@
+# Core server - required.
+fastapi
+uvicorn[standard]
+numpy
+pydantic
+
+# --- Hardware backends: install only what you actually fitted. ---
+# Everything defaults to simulation, so none of these are needed to
+# develop, test, or run the full UI.
+#
+# USB serial servo controller  (config.HARDWARE["servos"] = "serial32")
+# pyserial
+#
+# PCA9685 PWM servo driver     (config.HARDWARE["servos"] = "pca9685")
+# adafruit-circuitpython-pca9685
+#
+# MPU6050 IMU, for auto-level  (config.HARDWARE["imu"] = "mpu6050")
+# smbus2
+#
+# INA219 power monitor         (config.HARDWARE["power"] = "ina219")
+# adafruit-circuitpython-ina219
+#
+# ADS1115 + ACS758             (config.HARDWARE["power"] = "ads1115")
+# adafruit-circuitpython-ads1x15
+#
+# PS5 / Bluetooth gamepad          (config.GAMEPAD_ENABLED)
+# evdev
+#
+# GPIO buzzer                  (config.HARDWARE["buzzer"] = "gpio")
+# RPi.GPIO
